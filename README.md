@@ -40,6 +40,18 @@ Sanket combines three cutting-edge technologies to revolutionize disease outbrea
 - ✅ Anonymized data sharing
 - ✅ Aggregated symptom reports
 - ✅ No PII exposure
+  
+<img width="1918" height="982" alt="f1" src="https://github.com/user-attachments/assets/559b7411-1535-4fbb-8264-522a2dc38066" />
+<img width="1918" height="983" alt="f8" src="https://github.com/user-attachments/assets/989ef895-8e41-4ab6-96aa-6ee82f1ceb7e" />
+<img width="1918" height="980" alt="f9" src="https://github.com/user-attachments/assets/8a9be03e-7d7a-4618-814c-d5bc78cf9779" />
+<img width="1918" height="976" alt="f3" src="https://github.com/user-attachments/assets/9a0dfeab-24c0-4a59-850b-7433d80cdc99" />
+<img width="1917" height="986" alt="f4" src="https://github.com/user-attachments/assets/55930842-3a32-4e1a-96d4-5b08ecb5bc65" />
+<img width="1918" height="977" alt="f5" src="https://github.com/user-attachments/assets/4f3b297f-a26f-4f21-9506-01fbbad5fbff" />
+<img width="1918" height="982" alt="f6" src="https://github.com/user-attachments/assets/4ae118c3-f55c-4696-9eb9-6cb9c71ba373" />
+<img width="1918" height="978" alt="f7" src="https://github.com/user-attachments/assets/7ce91913-6a4f-44da-bfc4-a894748b57c0" />
+
+
+
 
 ## 🚀 Quick Start
 
