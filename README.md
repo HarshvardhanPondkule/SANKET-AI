@@ -40,7 +40,9 @@ Sanket combines three cutting-edge technologies to revolutionize disease outbrea
 - ✅ Anonymized data sharing
 - ✅ Aggregated symptom reports
 - ✅ No PII exposure
-  
+
+## Demo Screenshots
+
 <img width="1918" height="976" alt="image" src="https://github.com/user-attachments/assets/969ff00e-2d85-446f-b25f-3d0a2303cad6" />
 <img width="1918" height="983" alt="f8" src="https://github.com/user-attachments/assets/989ef895-8e41-4ab6-96aa-6ee82f1ceb7e" />
 <img width="1918" height="980" alt="f9" src="https://github.com/user-attachments/assets/8a9be03e-7d7a-4618-814c-d5bc78cf9779" />
