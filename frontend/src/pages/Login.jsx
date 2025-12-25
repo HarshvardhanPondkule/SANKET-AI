@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Activity, ShieldCheck, Stethoscope } from 'lucide-react';
-import { signInWithGooglePopup, signOutUser } from '../firebase';
+import { signInWithGooglePopup, signOutUser, signInUser, signUpUser } from '../firebase';
 import { OFFICIAL_WHITELIST } from '../services/api';
 
 const Login = ({ onLogin }) => {
@@ -9,6 +9,7 @@ const Login = ({ onLogin }) => {
     const [isSignup, setIsSignup] = useState(false);
     const [formData, setFormData] = useState({ name: '', email: '', password: '', village: 'Dharavi', phone: '' });
     const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
 
     useEffect(() => {
         // Check for previous unauthorized attempt flags
@@ -20,7 +21,7 @@ const Login = ({ onLogin }) => {
         } catch (_) { }
     }, []);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
         const emailLower = (formData.email || '').toLowerCase();
@@ -30,15 +31,95 @@ const Login = ({ onLogin }) => {
             return;
         }
 
-        // Simulate Auth Success
-        onLogin({
-            id: Math.random().toString(36).substring(2, 11),
-            name: formData.name || 'User',
-            email: formData.email,
-            role,
-            village: formData.village,
-            phone: formData.phone
-        });
+        try {
+            let user;
+            if (isSignup) {
+                const userCredential = await signUpUser(formData.email, formData.password);
+                user = userCredential.user;
+            } else {
+                const userCredential = await signInUser(formData.email, formData.password);
+                user = userCredential.user;
+            }
+
+
+            if (isSignup) {
+                setSuccess('User registered successfully! Redirecting...');
+                setTimeout(() => {
+                    onLogin({
+                        id: user.uid,
+                        name: formData.name || user.displayName || 'User',
+                        email: user.email,
+                        role,
+                        village: formData.village,
+                        phone: formData.phone
+                    });
+                }, 1500);
+            } else {
+                onLogin({
+                    id: user.uid,
+                    name: formData.name || user.displayName || 'User',
+                    email: user.email,
+                    role,
+                    village: formData.village,
+                    phone: formData.phone
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+                setError('Invalid email or password.');
+            } else if (err.code === 'auth/email-already-in-use') {
+                setError('Email is already registered.');
+            } else if (err.code === 'auth/weak-password') {
+                setError('Password must be at least 6 characters.');
+            } else {
+                setError('Authentication failed: ' + err.code.replace('auth/', ''));
+            }
+        }
+    };
+
+    const handleSendOtp = async (e) => {
+        e.preventDefault();
+        setError(null);
+        if (!formData.phone || formData.phone.length < 10) {
+            setError('Please enter a valid phone number.');
+            return;
+        }
+        try {
+            // Ensure phone format is +91... or international
+            const phoneNumber = formData.phone.startsWith('+') ? formData.phone : `+91${formData.phone}`;
+
+            // Initialize Recaptcha if not already done (or reuse container)
+            if (!window.recaptchaVerifier) {
+                window.recaptchaVerifier = await initRecaptcha('recaptcha-container');
+            }
+
+            const confirmation = await loginWithPhone(phoneNumber, window.recaptchaVerifier);
+            setConfirmationResult(confirmation);
+        } catch (err) {
+            console.error(err);
+            setError('Failed to send OTP. Try again. ' + err.message);
+        }
+    };
+
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        setError(null);
+        try {
+            const result = await confirmationResult.confirm(otp);
+            const user = result.user;
+            onLogin({
+                id: user.uid,
+                name: user.displayName || 'Phone User',
+                email: user.email || 'No Email',
+                role, // Default role
+                village: formData.village,
+                phone: user.phoneNumber
+            });
+        } catch (err) {
+            console.error(err);
+            setError('Invalid OTP. Please try again.');
+        }
     };
 
     const loginWithGoogle = async () => {
@@ -117,6 +198,13 @@ const Login = ({ onLogin }) => {
                     </div>
                 )}
 
+                {success && (
+                    <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-200 text-sm text-center">
+                        {success}
+                    </div>
+                )}
+
+                {/* Email Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {isSignup && (
                         <input type="text" placeholder="Full Name" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
@@ -124,10 +212,7 @@ const Login = ({ onLogin }) => {
                     <input type="email" placeholder="Email Address" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
                     <input type="password" placeholder="Password" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
                     {isSignup && role === 'asha' && (
-                        <>
-                            <input type="text" placeholder="Village" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors" value={formData.village} onChange={e => setFormData({ ...formData, village: e.target.value })} />
-                            <input type="tel" placeholder="Phone Number" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                        </>
+                        <input type="text" placeholder="Village (Optional)" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors" value={formData.village} onChange={e => setFormData({ ...formData, village: e.target.value })} />
                     )}
 
                     <button type="submit" className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-transform active:scale-95
@@ -135,6 +220,10 @@ const Login = ({ onLogin }) => {
                         {isSignup ? 'Register New Agent' : 'Access System'}
                     </button>
                 </form>
+
+
+
+
 
                 <div className="mt-4">
                     <button onClick={loginWithGoogle} className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">

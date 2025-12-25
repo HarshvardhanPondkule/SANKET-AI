@@ -47,9 +47,32 @@ export async function signInWithGooglePopup() {
   return signInWithPopup(auth, googleProvider);
 }
 
+export async function signInUser(email, password) {
+  const { signInWithEmailAndPassword } = await import('firebase/auth');
+  return signInWithEmailAndPassword(auth, email, password);
+}
+
+export async function signUpUser(email, password) {
+  const { createUserWithEmailAndPassword } = await import('firebase/auth');
+  return createUserWithEmailAndPassword(auth, email, password);
+}
+
 export async function signOutUser() {
   const { signOut } = await import('firebase/auth');
   return signOut(auth);
 }
+
+export async function loginWithPhone(phoneNumber, appVerifier) {
+  const { signInWithPhoneNumber } = await import('firebase/auth');
+  return signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+}
+
+export async function initRecaptcha(elementId) {
+  const { RecaptchaVerifier } = await import('firebase/auth');
+  return new RecaptchaVerifier(auth, elementId, {
+    'size': 'invisible',
+  });
+}
+
 
 export { app, auth, googleProvider, analytics };
