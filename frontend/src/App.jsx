@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { AlertCircle, Activity, Map, Brain, Users, CheckCircle, Mic, Camera, LogOut, Bell, Send, MapPin } from 'lucide-react';
+import { auth, signInWithGooglePopup, signOutUser } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const API_BASE = 'http://localhost:8000';
+
+// Allowed emails for Health Official role
+const OFFICIAL_WHITELIST = new Set([
+  'soham.pethkar1710@gmail.com',
+  'dcharshvardhanpondkule@gmail.com',
+]);
 
 const api = {
   async get(endpoint) {
@@ -27,17 +35,83 @@ const SanketApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [showLogin, setShowLogin] = useState(true);
 
+  // Final client-side guard: if someone reaches an Official state without authorization,
+  // force sign-out and redirect to login page.
+  useEffect(() => {
+    const enforceOfficialGuard = async () => {
+      if (currentUser?.role === 'official') {
+        const email = (currentUser.email || '').toLowerCase();
+        if (!OFFICIAL_WHITELIST.has(email)) {
+          try { await signOutUser(); } catch (_) {}
+          localStorage.removeItem('sanket_user');
+          setCurrentUser(null);
+          setShowLogin(true);
+          try { window.location.replace('/'); } catch (_) {}
+          setTimeout(() => { try { window.location.reload(); } catch (_) {} }, 50);
+        }
+      }
+    };
+    enforceOfficialGuard();
+  }, [currentUser]);
+
   useEffect(() => {
     const savedUser = localStorage.getItem('sanket_user');
     if (savedUser) { setCurrentUser(JSON.parse(savedUser)); setShowLogin(false); }
+
+    // Sync with Firebase Auth state
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        // Only auto-login if an app session exists; otherwise keep login page
+        const storedRaw = localStorage.getItem('sanket_user');
+        if (!storedRaw) {
+          setShowLogin(true);
+          return;
+        }
+        const stored = JSON.parse(storedRaw || '{}');
+        const requestedOfficial = stored.role === 'official';
+        const email = (fbUser.email || '').toLowerCase();
+        if (requestedOfficial && !OFFICIAL_WHITELIST.has(email)) {
+          try { await signOutUser(); } catch (_) {}
+          localStorage.removeItem('sanket_user');
+          // Set a one-shot warning flag for the login page to read
+          try { localStorage.setItem('unauthorized_official', '1'); } catch (_) {}
+          setCurrentUser(null);
+          setShowLogin(true);
+          // Also show an immediate alert for current view
+          alert('This email is not authorized as Health Official. Please sign in with an approved account.');
+          // Hard-redirect to login page (root) to ensure full reset
+          try { window.location.replace('/'); } catch (_) {}
+          // Fallback in case replace is blocked by environment
+          setTimeout(() => { try { window.location.reload(); } catch (_) {} }, 50);
+          return;
+        }
+        const desiredRole = requestedOfficial ? 'official' : 'asha';
+        const mapped = {
+          id: fbUser.uid,
+          name: fbUser.displayName || fbUser.email || 'User',
+          email: fbUser.email || '',
+          role: desiredRole,
+        };
+        setCurrentUser(mapped);
+        localStorage.setItem('sanket_user', JSON.stringify(mapped));
+        setShowLogin(false);
+      }
+    });
+    return () => unsub();
   }, []);
 
   const handleLogin = (user) => { setCurrentUser(user); localStorage.setItem('sanket_user', JSON.stringify(user)); setShowLogin(false); };
-  const handleLogout = () => { setCurrentUser(null); localStorage.removeItem('sanket_user'); setShowLogin(true); };
+  const handleLogout = async () => { try { await signOutUser(); } catch (_) {} setCurrentUser(null); localStorage.removeItem('sanket_user'); setShowLogin(true); };
 
   if (showLogin) return <LoginPage onLogin={handleLogin} />;
+  if (currentUser?.role === 'official') {
+    // Final guard to prevent unauthorized official access
+    if (!OFFICIAL_WHITELIST.has((currentUser.email || '').toLowerCase())) {
+      return <ASHAInterface user={{ ...currentUser, role: 'asha' }} onLogout={handleLogout} />;
+    }
+    return <OfficialDashboard user={currentUser} onLogout={handleLogout} />;
+  }
   if (currentUser?.role === 'asha') return <ASHAInterface user={currentUser} onLogout={handleLogout} />;
-  if (currentUser?.role === 'official') return <OfficialDashboard user={currentUser} onLogout={handleLogout} />;
   return <LoginPage onLogin={handleLogin} />;
 };
 
@@ -45,9 +119,26 @@ const LoginPage = ({ onLogin }) => {
   const [isSignup, setIsSignup] = useState(false);
   const [role, setRole] = useState('asha');
   const [formData, setFormData] = useState({ name: '', email: '', password: '', village: '', phone: '' });
+  const [warnUnauthorizedOfficial, setWarnUnauthorizedOfficial] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('unauthorized_official') === '1') {
+        setWarnUnauthorizedOfficial(true);
+        localStorage.removeItem('unauthorized_official');
+      }
+    } catch (_) {}
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const emailLower = (formData.email || '').toLowerCase();
+    if (role === 'official' && !OFFICIAL_WHITELIST.has(emailLower)) {
+      try { localStorage.setItem('unauthorized_official', '1'); } catch (_) {}
+      setWarnUnauthorizedOfficial(true);
+      alert('This email is not authorized as Health Official. Please sign in with an approved account.');
+      return; // stay on login page
+    }
     onLogin({ id: Math.random().toString(36).substring(2, 11), name: formData.name, email: formData.email, role, village: formData.village, phone: formData.phone });
   };
 
@@ -57,6 +148,32 @@ const LoginPage = ({ onLogin }) => {
       official: { id: 'official_001', name: 'Dr. Rajesh Kumar', email: 'rajesh@health.gov.in', role: 'official', district: 'Mumbai', designation: 'District Health Officer' }
     };
     onLogin(demoUsers[demoRole]);
+  };
+
+  const loginWithGoogle = async () => {
+    try {
+      const cred = await signInWithGooglePopup();
+      const fbUser = cred.user;
+      const emailLower = (fbUser.email || '').toLowerCase();
+      if (role === 'official' && !OFFICIAL_WHITELIST.has(emailLower)) {
+        try { await signOutUser(); } catch (_) {}
+        try { localStorage.setItem('unauthorized_official', '1'); } catch (_) {}
+        alert('This email is not authorized as Health Official. Please sign in with an approved account.');
+        try { window.location.replace('/'); } catch (_) {}
+        setTimeout(() => { try { window.location.reload(); } catch (_) {} }, 50);
+        return; // redirect to login page
+      }
+      onLogin({
+        id: fbUser.uid,
+        name: fbUser.displayName || 'User',
+        email: fbUser.email || '',
+        role,
+        village: formData.village,
+        phone: formData.phone,
+      });
+    } catch (e) {
+      alert('Google Sign-In failed');
+    }
   };
 
   return (
@@ -69,6 +186,11 @@ const LoginPage = ({ onLogin }) => {
           <h1 className="text-3xl font-bold text-gray-900">Sanket</h1>
           <p className="text-gray-600 mt-2">Quantum-Enhanced Epidemiology Network</p>
         </div>
+        {warnUnauthorizedOfficial && (
+          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            This email is not authorized as Health Official. Please sign in with an approved account or continue as ASHA.
+          </div>
+        )}
         <div className="flex gap-2 mb-6">
           <button onClick={() => setRole('asha')} className={`flex-1 py-3 rounded-lg font-medium transition-all ${role === 'asha' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>ASHA Worker</button>
           <button onClick={() => setRole('official')} className={`flex-1 py-3 rounded-lg font-medium transition-all ${role === 'official' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>Health Official</button>
@@ -83,6 +205,11 @@ const LoginPage = ({ onLogin }) => {
           </>)}
           <button type="submit" className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium">{isSignup ? 'Sign Up' : 'Login'}</button>
         </form>
+        <div className="mt-4">
+          <button onClick={loginWithGoogle} className="w-full py-3 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50">
+            Continue with Google
+          </button>
+        </div>
         <div className="mt-4 text-center"><button onClick={() => setIsSignup(!isSignup)} className="text-indigo-600 hover:underline">{isSignup ? 'Already have an account? Login' : "Don't have an account? Sign Up"}</button></div>
         <div className="mt-6 pt-6 border-t border-gray-200">
           <p className="text-sm text-gray-600 text-center mb-3">Quick Demo Access</p>
