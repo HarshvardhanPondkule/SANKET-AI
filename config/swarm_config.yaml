@@ -1,0 +1,47 @@
+# Swarm Network Configuration
+
+swarm:
+  # Network Topology
+  topology:
+    v1:  # Dharavi
+      name: "Dharavi"
+      location: [19.04, 72.86]
+      population: 700000
+      neighbors: ["v2", "v3"]
+      
+    v2:  # Kalyan
+      name: "Kalyan"
+      location: [19.24, 73.14]
+      population: 150000
+      neighbors: ["v1", "v3"]
+      
+    v3:  # Thane
+      name: "Thane"
+      location: [19.22, 72.97]
+      population: 180000
+      neighbors: ["v1", "v2", "v4"]
+      
+    v4:  # Navi Mumbai
+      name: "Navi Mumbai"
+      location: [19.03, 73.01]
+      population: 120000
+      neighbors: ["v3"]
+  
+  # Agent Behavior
+  behavior:
+    anomaly_threshold: 2.0  # baseline cases
+    query_neighbors_on_anomaly: true
+    auto_escalate_on_consensus: true
+    consensus_threshold: 0.66  # 2/3 majority
+    
+  # Communication
+  communication:
+    protocol: "peer-to-peer"
+    message_ttl: 5
+    enable_broadcast: true
+    
+  # Privacy
+  privacy:
+    anonymize_data: true
+    share_aggregated_only: true
+    data_retention_days: 30

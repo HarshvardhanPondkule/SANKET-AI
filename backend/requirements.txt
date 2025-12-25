@@ -1,0 +1,4 @@
+# Same as root requirements.txt
+# Backend uses all the same dependencies
+
+-r ../requirements.txt

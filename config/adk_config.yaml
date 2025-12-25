@@ -1,0 +1,42 @@
+# ADK Configuration for Sanket
+
+adk:
+  version: "0.1.0"
+  
+  # Model Configuration
+  model:
+    name: "gemini-1.5-pro"
+    temperature: 0.7
+    max_tokens: 2048
+    top_p: 0.9
+    
+  # Agent Configuration
+  agents:
+    default_memory_size: 50
+    conversation_history: true
+    structured_output: true
+    
+  # Orchestration
+  orchestration:
+    strategy: "collaborative"
+    communication: "peer-to-peer"
+    conflict_resolution: "consensus"
+    max_concurrent_agents: 10
+    
+  # Tools
+  tools:
+    timeout: 30  # seconds
+    retry_attempts: 3
+    enable_logging: true
+    
+  # Workflows
+  workflows:
+    enable_auto_workflow: true
+    default_timeout: 300  # seconds
+    parallel_execution: true
+    
+  # Safety & Limits
+  safety:
+    max_tool_calls_per_agent: 10
+    rate_limit_per_minute: 60
+    enable_content_filtering: true
