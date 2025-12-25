@@ -257,14 +257,6 @@ MIT License - see LICENSE file for details
 - **FastAPI** - Web framework
 - **React** - Frontend framework
 
-## 📧 Contact
-
-**Soham** - [@soham164](https://github.com/soham164)
-
-Project Link: [https://github.com/soham164/sanket-quant](https://github.com/soham164/sanket-quant)
-
----
-
 **⭐ Star this repo if you find it interesting!**
 
 ## 🎓 Research & Education
